@@ -12,3 +12,14 @@ except-pull-requests:
     - if: $CI_PIPELINE_SOURCE == "external_pull_request_event"
       when: never
     - when: on_success
+  
+test:
+  stage: test
+  script:
+    - cucumber Features --format junit --out reports/cucumber.xml
+  artifacts:
+    when: always
+    reports:
+      junit: reports/cucumber.xml
+    paths:
+      - reports/
