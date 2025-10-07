@@ -15,6 +15,8 @@ namespace StepikTesting.Hooks
     [Binding]
     internal sealed class DriverHooks
     {
+        private IWebDriver WebDriver;
+
         /// <summary>
         /// Method with driver actions before tests.
         /// </summary>
@@ -22,11 +24,16 @@ namespace StepikTesting.Hooks
         [BeforeScenario(Order = 1)]
         public void BeforeScenario(ScenarioContext scenarioContext)
         {
-            IWebDriver Webdriver;
+            var chromeOptions = new ChromeOptions();
+            chromeOptions.AddArguments(
+                "--headless",           // Run in headless mode
+                "--no-sandbox",         // Bypass OS security model, necessary in Docker/GitLab CI
+                "--disable-dev-shm-usage" // Overcome limited /dev/shm space in containers
+            );
 
-            Webdriver = new ChromeDriver();
+            WebDriver = new ChromeDriver(chromeOptions);
 
-            scenarioContext.ScenarioContainer.RegisterInstanceAs(Webdriver);
+            scenarioContext.ScenarioContainer.RegisterInstanceAs<IWebDriver>(WebDriver);
         }
 
         /// <summary>
