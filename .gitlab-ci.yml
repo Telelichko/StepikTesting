@@ -33,7 +33,7 @@ dotnet-test:
   stage: test
   services:
     - name: selenium/standalone-chrome:latest
-      alias: selenium
+      alias: selenium-standalone
   script:
     - dotnet restore
     - dotnet test StepikTesting.sln --logger:"junit;LogFilePath=testresult.xml"

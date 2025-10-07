@@ -7,6 +7,7 @@ namespace StepikTesting.Hooks
     using OpenQA.Selenium;
     using OpenQA.Selenium.Chrome;
     using Segment.Model;
+    using OpenQA.Selenium.Remote;
 
     using StepikTesting.Helpers;
     using TechTalk.SpecFlow;
@@ -26,18 +27,24 @@ namespace StepikTesting.Hooks
         [BeforeScenario(Order = 1)]
         public void BeforeScenario(ScenarioContext scenarioContext)
         {
+            IWebDriver webDriver;
             var chromeOptions = new ChromeOptions();
-            chromeOptions.AddArguments(
-                "--headless",           // Run in headless mode
-                "--no-sandbox",         // Bypass OS security model, necessary in Docker/GitLab CI
-                "--disable-dev-shm-usage" // Overcome limited /dev/shm space in containers
-            );
 
-            var service = ChromeDriverService.CreateDefaultService();
-            service.Port = 0;
-            var driver = new ChromeDriver(service, chromeOptions, TimeSpan.FromSeconds(60));
+            chromeOptions.AddArgument("--no-sandbox");
+            chromeOptions.AddArgument("--disable-dev-shm-usage");
+            chromeOptions.AddArgument("--headless=new"); // Run headless in CI
+            chromeOptions.AddArgument("--window-size=1920,1080");
 
-            scenarioContext.ScenarioContainer.RegisterInstanceAs<IWebDriver>(WebDriver);
+            if (Environment.GetEnvironmentVariable("GITLAB_CI") != null)
+            {
+                webDriver = new RemoteWebDriver(new Uri("http://selenium-standalone:4444/wd/hub"), chromeOptions.ToCapabilities());
+            }
+            else
+            {
+                webDriver = new ChromeDriver(chromeOptions);
+            }
+
+            scenarioContext.ScenarioContainer.RegisterInstanceAs(webDriver);
         }
 
         /// <summary>
