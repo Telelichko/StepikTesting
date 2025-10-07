@@ -1,25 +1,16 @@
-always-run:
-  script: echo 'this should always run'
+image: mcr.microsoft.com/dotnet/sdk:8.0
 
-on-pull-requests:
-  script: echo 'this should run on pull requests'
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "external_pull_request_event"
+stages:
+  - test
 
-except-pull-requests:
-  script: echo 'This should not run for pull requests, but runs in other cases.'
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "external_pull_request_event"
-      when: never
-    - when: on_success
-  
 test:
   stage: test
   script:
-    - cucumber Features --format junit --out reports/cucumber.xml
+    - dotnet restore
+    - dotnet test YourSolutionName.sln --logger:"junit;LogFilePath=testresult.xml"
   artifacts:
     when: always
     reports:
-      junit: reports/cucumber.xml
+      junit: testresult.xml
     paths:
-      - reports/
+      - testresult.xml
