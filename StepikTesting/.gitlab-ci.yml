@@ -7,7 +7,7 @@ test:
   stage: test
   script:
     - dotnet restore
-    - dotnet test YourSolutionName.sln --logger:"junit;LogFilePath=testresult.xml"
+    - dotnet test StepikTesting.sln --logger:"junit;LogFilePath=testresult.xml"
   artifacts:
     when: always
     reports:
