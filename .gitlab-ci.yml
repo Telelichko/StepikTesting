@@ -36,13 +36,14 @@ dotnet-test:
       alias: selenium-standalone
   script:
     - dotnet restore
-    - dotnet test StepikTesting.sln --logger:"junit;LogFilePath=./testresult.xml"
+    - dotnet test StepikTesting.sln --logger:"junit;LogFilePath=$CI_PROJECT_DIR/testresult.xml"
   artifacts:
     when: always
     reports:
-      junit: ./testresult.xml
+      junit: 
+        - $CI_PROJECT_DIR/testresult.xml 
     paths:
-      - ./testresult.xml
+      - $CI_PROJECT_DIR/testresult.xml
   allow_failure: true
 
 deploy-job:      # This job runs in the deploy stage.
