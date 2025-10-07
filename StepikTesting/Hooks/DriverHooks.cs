@@ -6,6 +6,8 @@ namespace StepikTesting.Hooks
 {
     using OpenQA.Selenium;
     using OpenQA.Selenium.Chrome;
+    using Segment.Model;
+
     using StepikTesting.Helpers;
     using TechTalk.SpecFlow;
 
@@ -31,7 +33,9 @@ namespace StepikTesting.Hooks
                 "--disable-dev-shm-usage" // Overcome limited /dev/shm space in containers
             );
 
-            WebDriver = new ChromeDriver(chromeOptions);
+            var service = ChromeDriverService.CreateDefaultService();
+            service.Port = 0;
+            var driver = new ChromeDriver(service, chromeOptions, TimeSpan.FromSeconds(60));
 
             scenarioContext.ScenarioContainer.RegisterInstanceAs<IWebDriver>(WebDriver);
         }
