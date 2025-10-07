@@ -3,7 +3,7 @@ image: mcr.microsoft.com/dotnet/sdk:8.0
 stages:
   - test
 
-test:
+dotnet-test:
   stage: test
   script:
     - dotnet restore
