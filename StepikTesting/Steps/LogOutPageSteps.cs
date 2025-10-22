@@ -1,5 +1,7 @@
 ﻿namespace StepikTesting.Steps
 {
+    using Allure.NUnit.Attributes;
+
     using StepikTesting.Components;
     using StepikTesting.Helpers;
     using TechTalk.SpecFlow;
@@ -20,6 +22,7 @@
         #region Actions
 
         [Given(@"on logout page click button ok")]
+        [AllureStep(@"on logout page click button ok")]
         public void LogOutPageClickButtonOk()
         {
             WaitHelper.WaitUntilAction(() => _logOutPage.ButtonOk != null && _logOutPage.ButtonOk.Enabled);

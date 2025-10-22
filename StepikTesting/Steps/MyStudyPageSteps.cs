@@ -1,5 +1,7 @@
 ﻿namespace StepikTesting.Steps
 {
+    using Allure.NUnit.Attributes;
+
     using FluentAssertions;
     using StepikTesting.Helpers;
     using StepikTesting.Pages;
@@ -22,6 +24,7 @@
 
         [Given(@"on my study page click on button course in progress")]
         [When(@"on my study page click on button course in progress")]
+        [AllureStep(@"on my study page click on button course in progress")]
         public void MyStudyPageClickButtonCoursesInProgress()
         {
             WaitHelper.WaitUntilAction(() => _myStudyPage.ListItemCoursesInProgress != null && _myStudyPage.ListItemCoursesInProgress.Enabled);
@@ -33,6 +36,7 @@
         #region Asserts
 
         [Then(@"on my study page there is left menu")]
+        [AllureStep(@"on my study page there is left menu")]
         public void AssertStepMenuLeftExist()
         {
             WaitHelper.WaitUntilAction(() => _myStudyPage.MenuLeft != null && _myStudyPage.MenuLeft.Enabled);
@@ -42,6 +46,7 @@
         }
 
         [Then(@"on my study page there is title ""(.*)""")]
+        [AllureStep(@"on my study page there is title ""(.*)""")]
         public void AssertStepCertainTitleExist(string expectedTitleText)
         {
             WaitHelper.WaitUntilAction(() => _myStudyPage.Title != null && _myStudyPage.Title.Enabled);
@@ -51,6 +56,7 @@
         }
 
         [Then(@"on my study page there is a course in progress ""(.*)""")]
+        [AllureStep(@"on my study page there is a course in progress ""(.*)""")]
         public void AssertStepCourseInList(string expectedCourseName)
         {
             WaitHelper.WaitUntilAction(() => _myStudyPage.LinkCourseInList != null && _myStudyPage.LinkCourseInList.Enabled);

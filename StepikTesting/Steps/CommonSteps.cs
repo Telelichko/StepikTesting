@@ -1,5 +1,7 @@
 ﻿namespace StepikTesting.Steps
 {
+    using Allure.NUnit.Attributes;
+
     using Components;
     using StepikTesting.Helpers;
     using StepikTesting.Pages;
@@ -18,6 +20,7 @@
         #region Actions
 
         [Given(@"login as ""(.*)"" -> ""(.*)""")]
+        [AllureStep(@"login as ""(.*)"" -> ""(.*)""")]
         public void Login(string login, string password)
         {
             AuthModalComponent authPage = _currentPage.AuthModalComponent;
@@ -51,6 +54,7 @@
         }
 
         [Given(@"logout")]
+        [AllureStep(@"logout")]
         public void Logout()
         {
             var logOutPage = _currentPage.LogOutModalComponent;

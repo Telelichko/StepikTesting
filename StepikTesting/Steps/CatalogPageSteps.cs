@@ -1,5 +1,7 @@
 ﻿namespace StepikTesting.Steps
 {
+    using Allure.NUnit.Attributes;
+
     using FluentAssertions;
     using StepikTesting.Helpers;
     using StepikTesting.Pages;
@@ -23,6 +25,7 @@
         #region Actions
 
         [Given(@"on catalog page click button ok")]
+        [AllureStep(@"on catalog page click button ok")]
         public void CatalogPageClickButtonOk()
         {
             WaitHelper.WaitUntilAction(() => _сatalogPage.ButtonOk != null && _сatalogPage.ButtonOk.Enabled);
@@ -30,6 +33,7 @@
         }
 
         [Given(@"on catalog page fill search input -> ""(.*)""")]
+        [AllureStep(@"on catalog page fill search input -> ""(.*)""")]
         public void CatalogPageFillSearchInput(string inputValue)
         {
             WaitHelper.WaitUntilAction(() => (_сatalogPage.InputSearch != null && _сatalogPage.InputSearch.Enabled));
@@ -37,6 +41,7 @@
         }
 
         [Given(@"on catalog page add course from list by number ""(.*)""")]
+        [AllureStep(@"on catalog page add course from list by number ""(.*)""")]
         public void CatalogPageAddNewCourseFromList(int courseNumber)
         {
             WaitHelper.WaitUntilAction(() => _сatalogPage.ListItems.Count != 0 && _сatalogPage.ListItems.First().Enabled);
@@ -57,6 +62,7 @@
         #region Asserts
 
         [Then(@"on catalog page there is title ""(.*)""")]
+        [AllureStep(@"on catalog page there is title ""(.*)""")]
         public void AssertStepTitleEquelToValue(string titleValue)
         {
             WaitHelper.WaitUntilAction(() => _сatalogPage.Titles.Count != 0 && _сatalogPage.Titles.First().Enabled);
@@ -68,6 +74,7 @@
         }
 
         [Then(@"on catalog page there are some courses")]
+        [AllureStep(@"on catalog page there are some courses")]
         public void AssertStepCoursesOnPage()
         {
             WaitHelper.WaitUntilAction(() => (_сatalogPage.ListItems.Count != 0 && _сatalogPage.ListItems.First().Enabled)
@@ -78,6 +85,7 @@
         }
 
         [Then(@"on catalog page there aren't some courses")]
+        [AllureStep(@"on catalog page there aren't some courses")]
         public void AssertStepNoCoursesOnPage()
         {
             WaitHelper.WaitUntilAction(() => _сatalogPage.ListItems.Count == 0);

@@ -4,11 +4,15 @@
     using FluentAssertions;
     using StepikTesting.Helpers;
     using TechTalk.SpecFlow;
+    using Allure.NUnit;
+    using Allure.NUnit.Attributes;
+    using NUnit.Framework;
 
     /// <summary>
     /// Class with steps in registration and login pages.
     /// </summary>
     [Binding]
+    [AllureNUnit]
     internal class AuthPageSteps
     {
         private readonly AuthModalComponent _authPage;
@@ -28,6 +32,7 @@
         #region Asserts
 
         [Then(@"on auth page not visible")]
+        [AllureStep(@"on auth page not visible")]
         public void AssertWindowNotVisible()
         {
             WaitHelper.WaitUntilAction(() => _authPage.WindowAuth == null);
@@ -37,6 +42,7 @@
         }
 
         [Then(@"on auth page visible")]
+        [AllureStep(@"on auth page visible")]
         public void AssertWindowVisible()
         {
             WaitHelper.WaitUntilAction(() => _authPage.WindowAuth != null && _authPage.WindowAuth.Enabled);
@@ -46,6 +52,7 @@
         }
 
         [Then(@"on auth page there is alert below button ok ""(.*)""")]
+        [AllureStep(@"on auth page there is alert below button ok ""(.*)""")]
         public void AssertIsAlertWithCertainTextExist(string expectedAlertMessage)
         {
             var actualAlertMessage = _authPage.InputEmail.GetAttribute("validationMessage");
