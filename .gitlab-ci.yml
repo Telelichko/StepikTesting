@@ -50,4 +50,4 @@ allure_report:
     paths:
       - allure-report/
   dependencies:
-    - test
+    - dotnet-test
