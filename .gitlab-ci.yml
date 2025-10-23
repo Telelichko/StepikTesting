@@ -19,7 +19,7 @@ dotnet-test:
       alias: selenium-standalone
   script:
     - dotnet restore
-    - dotnet test StepikTesting.sln --logger "trx" --results-directory TestResults
+    - dotnet test StepikTesting.sln --logger "trx" --results-directory TestResults /p:CollectScreenshots=true
   artifacts:
     when: always
     reports:
@@ -27,6 +27,7 @@ dotnet-test:
         - TestResults/*.trx
     paths:
       - TestResults/
+      - TestResults/screenshots/
   allow_failure: true
 
 allure-report:
