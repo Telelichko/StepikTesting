@@ -1,0 +1,11 @@
+{
+  "allure": {
+    "directory": "allure-results",
+    "links": [],
+    "environment": {
+      "runtime": "net8.0",
+      "allure_version": "2.14.1",
+      "specflow_version": "3.9.74"
+    }
+  }
+}

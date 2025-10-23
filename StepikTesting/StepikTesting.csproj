@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Allure.SpecFlow" Version="2.14.1" />
     <PackageReference Include="Analytics" Version="3.8.1" />
     <PackageReference Include="FluentAssertions" Version="8.7.1" />
     <PackageReference Include="JunitXml.TestLogger" Version="7.0.1" />

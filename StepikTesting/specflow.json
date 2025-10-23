@@ -1,0 +1,14 @@
+{
+  "$schema": "https://specflow.org/specflow.json",
+  "stepAssemblies": [
+    {
+      "assembly": "Allure.SpecFlowPlugin"
+    }
+  ],
+  "allure": {
+    "directory": "allure-results",
+    "links": [],
+    "breakingBehavior": "RestartContext",
+    "stepBehavior": "AllSteps"
+  }
+}
