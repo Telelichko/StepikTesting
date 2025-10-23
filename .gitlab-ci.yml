@@ -19,35 +19,33 @@ dotnet-test:
       alias: selenium-standalone
   script:
     - dotnet restore
-    - dotnet test StepikTesting.sln --logger:"junit;LogFilePath=$CI_PROJECT_DIR/testresult.xml"
-    - dotnet test --results-directory ./allure-results
+    - dotnet test StepikTesting.sln --logger "trx" --results-directory TestResults
   artifacts:
     when: always
     reports:
-      junit: 
-        - $CI_PROJECT_DIR/testresult.xml 
+      junit:
+        - TestResults/*.trx
     paths:
-      - $CI_PROJECT_DIR/testresult.xml
-      - allure-results/
+      - TestResults/
   allow_failure: true
 
-deploy-job: 
-  stage: deploy
-  environment: production
-  script:
-    - echo "Deploying application..."
-    - echo "Application successfully deployed."
-    
-allure_report:
+allure-report:
   image: openjdk:11-jdk
   stage: report
   script:
     - apt-get update && apt-get install -y wget unzip
     - wget https://github.com/allure-framework/allure2/releases/download/2.21.0/allure-2.21.0.zip
     - unzip allure-2.21.0.zip -d /opt/
-    - /opt/allure-2.21.0/bin/allure generate allure-results --clean -o allure-report
+    - /opt/allure-2.21.0/bin/allure generate TestResults --clean -o allure-report
   artifacts:
     paths:
       - allure-report/
   dependencies:
     - dotnet-test
+
+deploy-job:
+  stage: deploy
+  environment: production
+  script:
+    - echo "Deploying application..."
+    - echo "Application successfully deployed."
