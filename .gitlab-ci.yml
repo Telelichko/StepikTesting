@@ -4,6 +4,7 @@ stages:
   - build
   - test
   - report
+  - monitor
   - deploy
 
 build-job:
@@ -62,6 +63,16 @@ allure-report:
     expire_in: 1 week
   dependencies:
     - dotnet-test
+    
+grafana-monitor:
+  image: grafana/grafana:9.5.5
+  stage: monitor
+  services:
+    - name: grafana/grafana:9.5.5
+      alias: grafana
+  script:
+    - echo "Grafana service started for metrics visualization"
+  when: manual
 
 deploy-job:
   stage: deploy
