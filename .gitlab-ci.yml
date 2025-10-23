@@ -19,7 +19,7 @@ dotnet-test:
       alias: selenium-standalone
   script:
     - dotnet restore
-    - dotnet test StepikTesting.sln --logger "trx" --results-directory TestResults /p:CollectScreenshots=true
+    - dotnet test StepikTesting.sln --logger "trx" --results-directory TestResults
   artifacts:
     when: always
     reports:
@@ -27,20 +27,39 @@ dotnet-test:
         - TestResults/*.trx
     paths:
       - TestResults/
-      - TestResults/screenshots/
+    expire_in: 1 week
   allow_failure: true
 
 allure-report:
   image: openjdk:11-jdk
   stage: report
-  script:
+  before_script:
     - apt-get update && apt-get install -y wget unzip
     - wget https://github.com/allure-framework/allure2/releases/download/2.21.0/allure-2.21.0.zip
     - unzip allure-2.21.0.zip -d /opt/
-    - /opt/allure-2.21.0/bin/allure generate TestResults --clean -o allure-report
+    - ln -s /opt/allure-2.21.0/bin/allure /usr/local/bin/allure
+  script:
+    - allure generate TestResults --clean -o allure-report
+    - |
+      # Create Allure properties to configure screenshot display
+      mkdir -p allure-report/data
+      cat > allure-report/data/environment.json << EOF
+      {
+        "allure": {
+          "directory": "allure-results",
+          "links": [],
+          "environment": {
+            "runtime": "net8.0",
+            "allure_version": "2.21.0",
+            "specflow_version": "3.9.74"
+          }
+        }
+      }
+      EOF
   artifacts:
     paths:
       - allure-report/
+    expire_in: 1 week
   dependencies:
     - dotnet-test
 
