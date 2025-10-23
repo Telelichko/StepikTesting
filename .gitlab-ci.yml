@@ -27,7 +27,6 @@ dotnet-test:
         - TestResults/*.trx
     paths:
       - TestResults/
-      - allure-results/
   allow_failure: true
 
 allure-report:
@@ -37,7 +36,7 @@ allure-report:
     - apt-get update && apt-get install -y wget unzip
     - wget https://github.com/allure-framework/allure2/releases/download/2.21.0/allure-2.21.0.zip
     - unzip allure-2.21.0.zip -d /opt/
-    - /opt/allure-2.21.0/bin/allure generate allure-results --clean -o allure-report
+    - /opt/allure-2.21.0/bin/allure generate TestResults --clean -o allure-report
   artifacts:
     paths:
       - allure-report/
