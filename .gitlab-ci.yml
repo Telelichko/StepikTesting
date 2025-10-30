@@ -63,15 +63,17 @@ allure-report:
     expire_in: 1 week
   dependencies:
     - dotnet-test
-    
+
 grafana-monitor:
   image: grafana/grafana:9.5.5
   stage: monitor
   services:
+    - name: prom/prometheus:latest
+      alias: prometheus
     - name: grafana/grafana:9.5.5
       alias: grafana
   script:
-    - echo "Grafana service started for metrics visualization"
+    - echo "Grafana and Prometheus services running"
   when: manual
 
 deploy-job:

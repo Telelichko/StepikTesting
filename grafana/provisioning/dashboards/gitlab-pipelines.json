@@ -1,0 +1,68 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "gitlab_ci_pipeline_status{status=\"success\"}",
+          "legendFormat": "Successful Pipelines",
+          "refId": "A"
+        }
+      ],
+      "title": "Successful Pipelines",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "gitlab_ci_job_duration_seconds",
+          "legendFormat": "Job Duration (seconds)",
+          "refId": "B"
+        }
+      ],
+      "title": "Job Duration",
+      "type": "graph"
+    }
+  ],
+  "schemaVersion": 30,
+  "title": "GitLab CI Pipelines",
+  "version": 1
+}
