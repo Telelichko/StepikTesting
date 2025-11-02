@@ -78,9 +78,12 @@ grafana-monitor:
   
 start-exporter:
   stage: monitor
-  image: mvisonneau/gitlab-ci-pipelines-exporter:latest
+  image: alpine:latest
+  services:
+    - name: mvisonneau/gitlab-ci-pipelines-exporter:latest
+      alias: gitlab-ci-exporter
   script:
-    - ./gitlab-ci-pipelines-exporter
+    - echo "Exporter service is running alongside"
 
 deploy-job:
   stage: deploy
