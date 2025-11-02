@@ -64,17 +64,20 @@ allure-report:
   dependencies:
     - dotnet-test
     
-
 grafana-monitor:
   stage: monitor
   image: grafana/grafana:latest
   variables:
     GF_SECURITY_ADMIN_PASSWORD: "admin"
     GF_INSTALL_PLUGINS: "grafana-piechart-panel,grafana-clock-panel,mtanda-histogram-panel"
+    GF_PATHS_DATA: "/var/lib/grafana"
+    GF_PATHS_LOGS: "/var/log/grafana"
+    GF_PATHS_PLUGINS: "/var/lib/grafana/plugins"
   before_script:
     - apk add --no-cache curl jq
     - mkdir -p /etc/grafana/provisioning/dashboards /etc/grafana/provisioning/datasources
     - mkdir -p /var/lib/grafana/dashboards
+    - chown -R 472:472 /var/lib/grafana
   script:
     - |
       # Create datasource configuration for Prometheus (assuming Prometheus is available)
@@ -176,32 +179,75 @@ grafana-monitor:
       
       # Wait for Grafana to start
       echo "Waiting for Grafana to start..."
+      max_attempts=30
+      attempt=1
       until curl -s http://localhost:3000/api/health > /dev/null; do
+        if [ $attempt -eq $max_attempts ]; then
+          echo "Grafana failed to start within the expected time"
+          exit 1
+        fi
+        echo "Attempt $attempt/$max_attempts: Grafana not ready yet..."
         sleep 2
+        attempt=$((attempt + 1))
       done
       
-      # Import test results data (example - you would parse your actual test results)
-      echo "Simulating test metrics data import..."
+      echo "Grafana is running and ready!"
+      echo "Grafana Dashboard URL: http://localhost:3000"
+      echo "Username: admin"
+      echo "Password: admin"
       
-      # Create a simple dashboard via API
-      curl -X POST \
+      # Import test results data and create dashboard via API
+      echo "Setting up test metrics dashboard..."
+      
+      # Create dashboard via API
+      DASHBOARD_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST \
         -H "Content-Type: application/json" \
         -H "Accept: application/json" \
         -d '{
           "dashboard": {
-            "title": "CI Test Analytics",
-            "panels": []
-          }
+            "title": "CI Test Analytics - Pipeline $CI_PIPELINE_ID",
+            "tags": ["ci", "tests", "pipeline-$CI_PIPELINE_ID"],
+            "timezone": "browser",
+            "panels": [
+              {
+                "id": 1,
+                "title": "Pipeline Information",
+                "type": "text",
+                "gridPos": {"h": 3, "w": 24, "x": 0, "y": 0},
+                "mode": "markdown",
+                "content": "# Pipeline $CI_PIPELINE_ID\\n**Branch:** $CI_COMMIT_REF_NAME\\n**Commit:** $CI_COMMIT_SHORT_SHA\\n**Triggered by:** $GITLAB_USER_NAME"
+              }
+            ],
+            "time": {"from": "now-1h", "to": "now"}
+          },
+          "folderId": 0,
+          "overwrite": true
         }' \
-        http://admin:admin@localhost:3000/api/dashboards/db
+        http://admin:admin@localhost:3000/api/dashboards/db)
       
-      echo "Grafana monitoring dashboard setup complete"
+      if [ "$DASHBOARD_RESPONSE" = "200" ]; then
+        echo "Dashboard created successfully!"
+      else
+        echo "Dashboard creation response: $DASHBOARD_RESPONSE"
+      fi
       
-      # Keep Grafana running for a while to allow inspection
-      sleep 300
+      # Display access information
+      echo "=== Grafana Monitoring ==="
+      echo "Access your Grafana instance at: http://localhost:3000"
+      echo "Credentials: admin / admin"
+      echo "The service will remain active for 10 minutes for manual inspection"
+      echo "Press Ctrl+C to stop earlier"
+      echo "=========================="
       
-      # Kill Grafana process
+      # Keep Grafana running for manual inspection (10 minutes)
+      sleep 600
+      
+      # Clean shutdown
+      echo "Stopping Grafana..."
       kill $GRAFANA_PID
+      wait $GRAFANA_PID
+      echo "Grafana monitoring session completed"
   artifacts:
     paths:
       - /var/lib/grafana/dashboards/
@@ -212,6 +258,10 @@ grafana-monitor:
   dependencies:
     - dotnet-test
   allow_failure: true
+  when: manual
+  tags:
+    - docker
+  
 
 deploy-job:
   stage: deploy
