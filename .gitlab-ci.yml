@@ -259,8 +259,6 @@ grafana-monitor:
     - dotnet-test
   allow_failure: true
   when: manual
-  tags:
-    - docker
   
 
 deploy-job:
