@@ -64,101 +64,33 @@ allure-report:
   dependencies:
     - dotnet-test
 
-grafana-monitor:
+metrics-exporter:
   stage: monitor
-  image: grafana/grafana:latest
+  image: mvisonneau/gitlab-ci-pipelines-exporter:latest
   variables:
-    GF_SECURITY_ADMIN_PASSWORD: "admin"
-    GF_SECURITY_ADMIN_USER: "admin"
-  before_script:
-    - |
-      mkdir -p /etc/prometheus
-      cat > /etc/prometheus/prometheus.yml << EOF
-      global:
-        scrape_interval: 15s
-        evaluation_interval: 15s
-
-      scrape_configs:
-        - job_name: 'gitlab-ci-pipelines-exporter'
-          static_configs:
-            - targets: ['gitlab-ci-exporter:8080']
-          metrics_path: /metrics
-          scrape_interval: 15s
-
-        - job_name: 'prometheus'
-          static_configs:
-            - targets: ['localhost:9090']
-      EOF
-
-    - |
-      mkdir -p /etc/grafana/provisioning/datasources
-      cat > /etc/grafana/provisioning/datasources/prometheus.yml << EOF
-      apiVersion: 1
-      datasources:
-      - name: Prometheus
-        type: prometheus
-        url: http://localhost:9090
-        access: proxy
-        isDefault: true
-        jsonData:
-          httpMethod: POST
-          timeInterval: 15s
-          queryTimeout: 60s
-      EOF
-
-    - |
-      mkdir -p /var/lib/grafana/dashboards
-      cat > /var/lib/grafana/dashboards/gitlab-ci.json << EOF
-      {
-        "dashboard": {
-          "id": null,
-          "title": "GitLab CI Pipeline Metrics",
-          "tags": ["gitlab", "ci"],
-          "timezone": "browser",
-          "panels": [],
-          "time": {
-            "from": "now-1h",
-            "to": "now"
-          }
-        }
-      }
-      EOF
-
+    GITLAB_URL: "https://gitlab.com"
+    GITLAB_TOKEN: "$CI_JOB_TOKEN"
+    GITLAB_PROJECTS: "telelichko/StepikTesting"
   script:
     - |
-      echo "=== Monitoring Dashboard ==="
-      echo "Grafana URL: http://localhost:3000"
-      echo "Username: admin"
-      echo "Password: admin"
-      echo ""
-      echo "Prometheus URL: http://localhost:9090"
-      echo "GitLab Exporter: http://localhost:8080/metrics"
-      echo ""
-      echo "Data sources are auto-configured"
-      /run.sh
-  services:
-    - name: prom/prometheus:latest
-      alias: prometheus
-      command: 
-        - '--config.file=/etc/prometheus/prometheus.yml'
-        - '--web.enable-remote-write-receiver'
-        - '--web.cors.origin=.*'
-    - name: mvisonneau/gitlab-ci-pipelines-exporter:latest
-      alias: gitlab-ci-exporter
-      variables:
-        GITLAB_URL: "https://gitlab.com"
-        GITLAB_TOKEN: "$CI_JOB_TOKEN"
-        GCPE_WEB_SERVER_METRICS_ADDRESS: "0.0.0.0:8080"
+      echo "=== GitLab CI Metrics Exporter ==="
+      echo "Project: telelichko/StepikTesting"
+      echo "Exporting pipeline metrics..."
+      timeout 300s gitlab-ci-pipelines-exporter || echo "Exporter finished"
   when: manual
   
 start-exporter:
   stage: monitor
-  image: alpine:latest
-  services:
-    - name: mvisonneau/gitlab-ci-pipelines-exporter:latest
-      alias: gitlab-ci-exporter
+  image: mvisonneau/gitlab-ci-pipelines-exporter:latest
+  variables:
+    GITLAB_URL: "https://gitlab.com"
+    GITLAB_TOKEN: "$CI_JOB_TOKEN"
+    GITLAB_PROJECTS: "telelichko/StepikTesting"
   script:
-    - echo "Exporter service is running alongside"
+    - |
+      echo "Exporting metrics for 2 minutes..."
+      timeout 120s gitlab-ci-pipelines-exporter || echo "Exporter stopped"
+  when: manual
 
 deploy-job:
   stage: deploy
