@@ -212,10 +212,6 @@ grafana-monitor:
   dependencies:
     - dotnet-test
   allow_failure: true
-  only:
-    - main
-    - master
-    - develop
 
 deploy-job:
   stage: deploy
