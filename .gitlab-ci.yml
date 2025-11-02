@@ -75,6 +75,18 @@ grafana-monitor:
   script:
     - echo "Grafana and Prometheus services running"
   when: manual
+  
+start-exporter:
+  stage: monitor
+  image: mvisonneau/gitlab-ci-pipelines-exporter:latest
+  variables:
+    GITLAB_URL: "https://gitlab.com"
+    GITLAB_TOKEN: "$CI_JOB_TOKEN"  # use protected CI variable instead of hardcoded token
+  script:
+    - ./gitlab-ci-pipelines-exporter
+  services:
+    - name: prom/prometheus
+      alias: prometheus
 
 deploy-job:
   stage: deploy
