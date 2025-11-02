@@ -71,25 +71,11 @@ metrics-exporter:
     GITLAB_URL: "https://gitlab.com"
     GITLAB_TOKEN: "$CI_JOB_TOKEN"
     GITLAB_PROJECTS: "telelichko/StepikTesting"
+  before_script:
+    - echo "=== Starting GitLab CI Metrics Exporter ==="
+    - echo "Project: telelichko/StepikTesting"
   script:
-    - |
-      echo "=== GitLab CI Metrics Exporter ==="
-      echo "Project: telelichko/StepikTesting"
-      echo "Exporting pipeline metrics..."
-      timeout 300s gitlab-ci-pipelines-exporter || echo "Exporter finished"
-  when: manual
-  
-start-exporter:
-  stage: monitor
-  image: mvisonneau/gitlab-ci-pipelines-exporter:latest
-  variables:
-    GITLAB_URL: "https://gitlab.com"
-    GITLAB_TOKEN: "$CI_JOB_TOKEN"
-    GITLAB_PROJECTS: "telelichko/StepikTesting"
-  script:
-    - |
-      echo "Exporting metrics for 2 minutes..."
-      timeout 120s gitlab-ci-pipelines-exporter || echo "Exporter stopped"
+    - gitlab-ci-pipelines-exporter
   when: manual
 
 deploy-job:
