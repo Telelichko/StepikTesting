@@ -1,0 +1,12 @@
+{
+  "dashboard": {
+    "title": "Test Execution Analytics",
+    "panels": [
+      {
+        "title": "Test Results Overview",
+        "type": "stat",
+        "targets": [{"expr": "test_total"}]
+      }
+    ]
+  }
+}

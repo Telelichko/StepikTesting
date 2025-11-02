@@ -63,14 +63,159 @@ allure-report:
     expire_in: 1 week
   dependencies:
     - dotnet-test
+    
 
-metrics-exporter:
+grafana-monitor:
   stage: monitor
-  image: mvisonneau/gitlab-ci-pipelines-exporter:latest
+  image: grafana/grafana:latest
   variables:
-    GITLAB_URL: "https://gitlab.com"
-    GITLAB_TOKEN: "$CI_JOB_TOKEN"
-  when: manual
+    GF_SECURITY_ADMIN_PASSWORD: "admin"
+    GF_INSTALL_PLUGINS: "grafana-piechart-panel,grafana-clock-panel,mtanda-histogram-panel"
+  before_script:
+    - apk add --no-cache curl jq
+    - mkdir -p /etc/grafana/provisioning/dashboards /etc/grafana/provisioning/datasources
+    - mkdir -p /var/lib/grafana/dashboards
+  script:
+    - |
+      # Create datasource configuration for Prometheus (assuming Prometheus is available)
+      cat > /etc/grafana/provisioning/datasources/datasource.yml << EOF
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          url: http://prometheus:9090
+          isDefault: true
+      EOF
+    - |
+      # Create dashboard configuration
+      cat > /etc/grafana/provisioning/dashboards/dashboard.yml << EOF
+      apiVersion: 1
+      providers:
+        - name: 'Test Metrics'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          updateIntervalSeconds: 10
+          allowUiUpdates: true
+          options:
+            path: /var/lib/grafana/dashboards
+      EOF
+    - |
+      # Generate test metrics dashboard from test results
+      cat > /var/lib/grafana/dashboards/test-metrics.json << EOF
+      {
+        "dashboard": {
+          "id": null,
+          "title": "Test Execution Metrics",
+          "tags": ["tests", "ci"],
+          "timezone": "browser",
+          "panels": [
+            {
+              "id": 1,
+              "title": "Test Results Summary",
+              "type": "stat",
+              "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+              "targets": [
+                {
+                  "expr": "test_total_tests",
+                  "legendFormat": "Total Tests"
+                }
+              ],
+              "fieldConfig": {
+                "defaults": {
+                  "color": {"mode": "palette-classic"},
+                  "unit": "short"
+                }
+              }
+            },
+            {
+              "id": 2,
+              "title": "Test Success Rate",
+              "type": "gauge",
+              "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+              "targets": [
+                {
+                  "expr": "test_success_rate",
+                  "legendFormat": "Success Rate"
+                }
+              ],
+              "fieldConfig": {
+                "defaults": {
+                  "min": 0,
+                  "max": 100,
+                  "unit": "percent"
+                }
+              }
+            },
+            {
+              "id": 3,
+              "title": "Test Execution Time Trend",
+              "type": "graph",
+              "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+              "targets": [
+                {
+                  "expr": "test_execution_time",
+                  "legendFormat": "Execution Time"
+                }
+              ]
+            }
+          ],
+          "time": {"from": "now-1h", "to": "now"},
+          "refresh": "10s"
+        },
+        "folderId": 0,
+        "overwrite": true
+      }
+      EOF
+    - |
+      # Start Grafana in background
+      /run.sh &
+      GRAFANA_PID=$!
+      
+      # Wait for Grafana to start
+      echo "Waiting for Grafana to start..."
+      until curl -s http://localhost:3000/api/health > /dev/null; do
+        sleep 2
+      done
+      
+      # Import test results data (example - you would parse your actual test results)
+      echo "Simulating test metrics data import..."
+      
+      # Create a simple dashboard via API
+      curl -X POST \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json" \
+        -d '{
+          "dashboard": {
+            "title": "CI Test Analytics",
+            "panels": []
+          }
+        }' \
+        http://admin:admin@localhost:3000/api/dashboards/db
+      
+      echo "Grafana monitoring dashboard setup complete"
+      
+      # Keep Grafana running for a while to allow inspection
+      sleep 300
+      
+      # Kill Grafana process
+      kill $GRAFANA_PID
+  artifacts:
+    paths:
+      - /var/lib/grafana/dashboards/
+    reports:
+      junit:
+        - TestResults/*.trx
+    expire_in: 1 week
+  dependencies:
+    - dotnet-test
+  allow_failure: true
+  only:
+    - main
+    - master
+    - develop
 
 deploy-job:
   stage: deploy
