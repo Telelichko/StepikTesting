@@ -80,7 +80,6 @@ grafana-monitor:
     - chown -R 472:472 /var/lib/grafana
   script:
     - |
-      # Create datasource configuration for Prometheus (assuming Prometheus is available)
       cat > /etc/grafana/provisioning/datasources/datasource.yml << EOF
       apiVersion: 1
       datasources:
@@ -91,7 +90,6 @@ grafana-monitor:
           isDefault: true
       EOF
     - |
-      # Create dashboard configuration
       cat > /etc/grafana/provisioning/dashboards/dashboard.yml << EOF
       apiVersion: 1
       providers:
@@ -106,7 +104,6 @@ grafana-monitor:
             path: /var/lib/grafana/dashboards
       EOF
     - |
-      # Generate test metrics dashboard from test results
       cat > /var/lib/grafana/dashboards/test-metrics.json << EOF
       {
         "dashboard": {
@@ -120,49 +117,23 @@ grafana-monitor:
               "title": "Test Results Summary",
               "type": "stat",
               "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-              "targets": [
-                {
-                  "expr": "test_total_tests",
-                  "legendFormat": "Total Tests"
-                }
-              ],
-              "fieldConfig": {
-                "defaults": {
-                  "color": {"mode": "palette-classic"},
-                  "unit": "short"
-                }
-              }
+              "targets": [{"expr": "test_total_tests", "legendFormat": "Total Tests"}],
+              "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}}
             },
             {
               "id": 2,
               "title": "Test Success Rate",
               "type": "gauge",
               "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
-              "targets": [
-                {
-                  "expr": "test_success_rate",
-                  "legendFormat": "Success Rate"
-                }
-              ],
-              "fieldConfig": {
-                "defaults": {
-                  "min": 0,
-                  "max": 100,
-                  "unit": "percent"
-                }
-              }
+              "targets": [{"expr": "test_success_rate", "legendFormat": "Success Rate"}],
+              "fieldConfig": {"defaults": {"min": 0, "max": 100, "unit": "percent"}}
             },
             {
               "id": 3,
               "title": "Test Execution Time Trend",
               "type": "graph",
               "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
-              "targets": [
-                {
-                  "expr": "test_execution_time",
-                  "legendFormat": "Execution Time"
-                }
-              ]
+              "targets": [{"expr": "test_execution_time", "legendFormat": "Execution Time"}]
             }
           ],
           "time": {"from": "now-1h", "to": "now"},
@@ -172,82 +143,57 @@ grafana-monitor:
         "overwrite": true
       }
       EOF
+    - /run.sh & 
+    - GRAFANA_PID=$!
     - |
-      # Start Grafana in background
-      /run.sh &
-      GRAFANA_PID=$!
-      
-      # Wait for Grafana to start
       echo "Waiting for Grafana to start..."
       max_attempts=30
       attempt=1
       until curl -s http://localhost:3000/api/health > /dev/null; do
         if [ $attempt -eq $max_attempts ]; then
-          echo "Grafana failed to start within the expected time"
+          echo "Grafana failed to start within expected time"
+          kill $GRAFANA_PID
           exit 1
         fi
-        echo "Attempt $attempt/$max_attempts: Grafana not ready yet..."
+        echo "Attempt $attempt/$max_attempts: waiting..."
         sleep 2
-        attempt=$((attempt + 1))
+        attempt=$((attempt+1))
       done
-      
-      echo "Grafana is running and ready!"
-      echo "Grafana Dashboard URL: http://localhost:3000"
-      echo "Username: admin"
-      echo "Password: admin"
-      
-      # Import test results data and create dashboard via API
-      echo "Setting up test metrics dashboard..."
-      
-      # Create dashboard via API
-      DASHBOARD_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-        -X POST \
-        -H "Content-Type: application/json" \
-        -H "Accept: application/json" \
-        -d '{
-          "dashboard": {
-            "title": "CI Test Analytics - Pipeline $CI_PIPELINE_ID",
-            "tags": ["ci", "tests", "pipeline-$CI_PIPELINE_ID"],
-            "timezone": "browser",
-            "panels": [
-              {
+    - echo "Grafana is ready at http://localhost:3000"
+    - |
+      # Create/import dynamic dashboard with pipeline info via API
+      DASHBOARD_PAYLOAD=$(jq -n \
+        --arg id "$CI_PIPELINE_ID" \
+        --arg ref "$CI_COMMIT_REF_NAME" \
+        --arg sha "$CI_COMMIT_SHORT_SHA" \
+        --arg user "$GITLAB_USER_NAME" \
+        '{
+            "dashboard": {
+              "title": ("CI Test Analytics - Pipeline " + $id),
+              "tags": ["ci","tests",("pipeline-" + $id)],
+              "timezone": "browser",
+              "panels": [{
                 "id": 1,
                 "title": "Pipeline Information",
                 "type": "text",
-                "gridPos": {"h": 3, "w": 24, "x": 0, "y": 0},
-                "mode": "markdown",
-                "content": "# Pipeline $CI_PIPELINE_ID\\n**Branch:** $CI_COMMIT_REF_NAME\\n**Commit:** $CI_COMMIT_SHORT_SHA\\n**Triggered by:** $GITLAB_USER_NAME"
-              }
-            ],
-            "time": {"from": "now-1h", "to": "now"}
-          },
-          "folderId": 0,
-          "overwrite": true
-        }' \
-        http://admin:admin@localhost:3000/api/dashboards/db)
-      
-      if [ "$DASHBOARD_RESPONSE" = "200" ]; then
-        echo "Dashboard created successfully!"
-      else
-        echo "Dashboard creation response: $DASHBOARD_RESPONSE"
-      fi
-      
-      # Display access information
-      echo "=== Grafana Monitoring ==="
-      echo "Access your Grafana instance at: http://localhost:3000"
-      echo "Credentials: admin / admin"
-      echo "The service will remain active for 10 minutes for manual inspection"
-      echo "Press Ctrl+C to stop earlier"
-      echo "=========================="
-      
-      # Keep Grafana running for manual inspection (10 minutes)
-      sleep 600
-      
-      # Clean shutdown
-      echo "Stopping Grafana..."
-      kill $GRAFANA_PID
-      wait $GRAFANA_PID
-      echo "Grafana monitoring session completed"
+                "gridPos": {"h":3,"w":24,"x":0,"y":0},
+                "options": {
+                  "content": ("# Pipeline " + $id + "\n**Branch:** " + $ref + "\n**Commit:** " + $sha + "\n**Triggered by:** " + $user),
+                  "mode": "markdown"
+                }
+              }],
+              "time": {"from":"now-1h","to":"now"}
+            },
+            "folderId": 0,
+            "overwrite": true
+          }')
+      echo "$DASHBOARD_PAYLOAD" | curl -s -X POST -H "Content-Type: application/json" -d @- http://admin:$GF_SECURITY_ADMIN_PASSWORD@localhost:3000/api/dashboards/db
+    - echo "Grafana monitoring dashboard setup complete"
+    - echo "Running for 10 minutes for manual inspection..."
+    - sleep 600
+    - echo "Stopping Grafana..."
+    - kill $GRAFANA_PID
+    - wait $GRAFANA_PID
   artifacts:
     paths:
       - /var/lib/grafana/dashboards/
@@ -259,7 +205,6 @@ grafana-monitor:
     - dotnet-test
   allow_failure: true
   when: manual
-  
 
 deploy-job:
   stage: deploy
