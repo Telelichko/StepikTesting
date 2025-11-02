@@ -65,15 +65,37 @@ allure-report:
     - dotnet-test
 
 grafana-monitor:
-  image: grafana/grafana:9.5.5
   stage: monitor
+  image: grafana/grafana:latest
+  variables:
+    GF_SECURITY_ADMIN_PASSWORD: "admin"
+  before_script:
+    - mkdir -p /etc/grafana/provisioning/datasources
+    - |
+      cat > /etc/grafana/provisioning/datasources/prometheus.yml << EOF
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus:9090
+        access: proxy
+        isDefault: true
+        jsonData:
+          httpMethod: POST
+          timeInterval: 15s
+      EOF
+  script:
+    - |
+      echo "=== Grafana Started ==="
+      echo "Data Source 'Prometheus' should be auto-configured"
+      echo "Check: Configuration → Data Sources"
+      /run.sh
   services:
     - name: prom/prometheus:latest
       alias: prometheus
-    - name: grafana/grafana:9.5.5
-      alias: grafana
-  script:
-    - echo "Grafana and Prometheus services running"
+      command: ['--web.cors.origin=.*']
+    - name: mvisonneau/gitlab-ci-pipelines-exporter:latest
+      alias: gitlab-ci-exporter
   when: manual
   
 start-exporter:
