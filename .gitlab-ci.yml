@@ -71,9 +71,6 @@ metrics-exporter:
     GITLAB_URL: "https://gitlab.com"
     GITLAB_TOKEN: "$CI_JOB_TOKEN"
     GITLAB_PROJECTS: "telelichko/StepikTesting"
-  before_script:
-    - echo "=== Starting GitLab CI Metrics Exporter ==="
-    - echo "Project: telelichko/StepikTesting"
   script:
     - gitlab-ci-pipelines-exporter
   when: manual
