@@ -5,6 +5,11 @@ stages:
   - test
   - report
   - deploy
+  - monitoring
+
+services:
+  - name: selenium/standalone-chrome:latest
+    alias: selenium-standalone
 
 build-job:
   stage: build
@@ -14,9 +19,6 @@ build-job:
 
 dotnet-test:
   stage: test
-  services:
-    - name: selenium/standalone-chrome:latest
-      alias: selenium-standalone
   script:
     - dotnet restore
     - dotnet test StepikTesting.sln --logger "trx" --results-directory TestResults
@@ -41,7 +43,6 @@ allure-report:
   script:
     - allure generate TestResults --clean -o allure-report
     - |
-      # Create Allure properties to configure screenshot display
       mkdir -p allure-report/data
       cat > allure-report/data/environment.json << EOF
       {
@@ -69,3 +70,19 @@ deploy-job:
   script:
     - echo "Deploying application..."
     - echo "Application successfully deployed."
+
+monitoring:
+  image: docker:latest
+  stage: monitoring
+  services:
+    - docker:dind
+  before_script:
+    - apk add --no-cache py-pip
+    - pip install docker-compose
+  script:
+    - docker-compose -f docker-compose.yml up -d
+    - sleep 10
+    - docker-compose ps
+  after_script:
+    - docker-compose -f docker-compose.yml down
+  allow_failure: true
