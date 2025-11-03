@@ -76,59 +76,58 @@ grafana-monitoring:
       alias: prometheus
     - name: grafana/grafana:latest
       alias: grafana
-  before_script:
+  script:
     - |
       echo "Waiting for monitoring services to be ready..."
-      # Wait for Prometheus to be ready
-      for i in {1..30}; do
+
+      i=1
+      while [ $i -le 30 ]; do
         if curl -s --head --request GET "$PROMETHEUS_URL" | grep "200\|302" > /dev/null; then
           echo "Prometheus is ready!"
           break
         fi
         echo "Waiting for Prometheus... ($i/30)"
+        i=$((i + 1))
         sleep 5
       done
-      
-      # Wait for Grafana to be ready
-      for i in {1..30}; do
+
+      i=1
+      while [ $i -le 30 ]; do
         if curl -s --head --request GET "$GRAFANA_URL" | grep "200\|302" > /dev/null; then
           echo "Grafana is ready!"
           break
         fi
         echo "Waiting for Grafana... ($i/30)"
+        i=$((i + 1))
         sleep 5
       done
-  script:
-    - |
+
       echo "=== Monitoring Setup ==="
-      
+
       echo "Using service URLs for monitoring:"
       echo "Prometheus URL: $PROMETHEUS_URL"
       echo "Grafana URL: $GRAFANA_URL"
-      
-      # Test if URLs are accessible using service names
+
       echo "Testing Prometheus connectivity..."
       if curl -f -s -o /dev/null -w "HTTP Status: %{http_code}\n" "$PROMETHEUS_URL"; then
         echo "✓ Prometheus is accessible via service URL"
       else
         echo "✗ Prometheus is not accessible via service URL"
       fi
-      
+
       echo "Testing Grafana connectivity..."
       if curl -f -s -o /dev/null -w "HTTP Status: %{http_code}\n" "$GRAFANA_URL"; then
         echo "✓ Grafana is accessible via service URL"
       else
         echo "✗ Grafana is not accessible via service URL"
       fi
-      
-      # Test additional endpoints
+
       echo "Testing Prometheus graph endpoint..."
       curl -f -s -o /dev/null -w "Prometheus Graph HTTP Status: %{http_code}\n" "${PROMETHEUS_URL}graph" || echo "Prometheus graph endpoint not accessible"
-      
+
       echo "Testing Grafana API endpoint..."
       curl -f -s -o /dev/null -w "Grafana API HTTP Status: %{http_code}\n" "${GRAFANA_URL}api/health" || echo "Grafana API endpoint not accessible"
-      
-      # Basic setup for Grafana using service URLs
+
       echo "Setting up Grafana datasource..."
       curl -X POST "${GRAFANA_URL}api/datasources" \
         -H "Content-Type: application/json" \
@@ -139,8 +138,7 @@ grafana-monitoring:
           "access": "proxy",
           "basicAuth": false
         }' || echo "Note: Datasource setup might require authentication"
-      
-      # Create monitoring.env file with service URLs
+
       cat > monitoring.env << EOF
       PROMETHEUS_URL=$PROMETHEUS_URL
       GRAFANA_URL=$GRAFANA_URL
@@ -149,16 +147,14 @@ grafana-monitoring:
       GRAFANA_API_URL=${GRAFANA_URL}api
       GRAFANA_DATASOURCES_URL=${GRAFANA_URL}datasources
       EOF
-      
+
       echo "Monitoring URLs saved:"
       cat monitoring.env
-      
+
       echo "Monitoring setup completed!"
-      
-      # Wait for manual testing (5 minutes)
+
       echo "Waiting 5 minutes for manual testing and monitoring verification..."
       sleep 300
-      
       echo "Manual testing period completed."
   artifacts:
     reports:
