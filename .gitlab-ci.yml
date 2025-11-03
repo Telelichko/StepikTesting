@@ -73,140 +73,103 @@ monitoring:
     - apk add --no-cache docker-compose curl jq
   script:
     - |
-      # Create necessary directories and config files first
       mkdir -p prometheus-storage
       mkdir -p grafana-storage/provisioning/datasources
       mkdir -p grafana-storage/provisioning/dashboards
-      
-      # Create minimal Prometheus config
+    - |
       cat > prometheus-storage/prometheus.yml << 'EOF'
-global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
 
-scrape_configs:
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-    metrics_path: /metrics
-    scheme: http
+      scrape_configs:
+        - job_name: 'prometheus'
+          static_configs:
+            - targets: ['localhost:9090']
+          metrics_path: /metrics
+          scheme: http
 
-  - job_name: 'grafana'
-    static_configs:
-      - targets: ['grafana:3000']
-    metrics_path: /metrics
-    scheme: http
-EOF
-
-      # Create Grafana datasource config
+        - job_name: 'grafana'
+          static_configs:
+            - targets: ['grafana:3000']
+          metrics_path: /metrics
+          scheme: http
+      EOF
+    - |
       cat > grafana-storage/provisioning/datasources/datasource.yml << 'EOF'
-apiVersion: 1
+      apiVersion: 1
 
-datasources:
-  - name: 'Prometheus'
-    type: 'prometheus'
-    access: 'proxy'
-    url: 'http://prometheus:9090'
-    isDefault: true
-EOF
-
-      # Start docker-compose with explicit network
+      datasources:
+        - name: 'Prometheus'
+          type: 'prometheus'
+          access: 'proxy'
+          url: 'http://prometheus:9090'
+          isDefault: true
+      EOF
+    - |
       echo "Starting monitoring stack..."
       docker-compose -f docker-compose.yml up -d
-      
-      # Wait for services
-      echo "Waiting for services to start..."
-      sleep 15
-      
-      # Check container status
-      echo "=== Container Status ==="
-      docker-compose ps
-      
-      # Get container IPs
+    - sleep 15
+    - docker-compose ps
+    - |
       PROMETHEUS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' prometheus)
       GRAFANA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' grafana)
-      
       echo "Prometheus Container IP: $PROMETHEUS_IP"
       echo "Grafana Container IP: $GRAFANA_IP"
-      
-      # Test access via container IPs
+    - |
       echo "=== Testing Access via Container IPs ==="
+      PROMETHEUS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' prometheus)
+      GRAFANA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' grafana)
       
       echo "Testing Prometheus at http://${PROMETHEUS_IP}:9090..."
       if curl -s --connect-timeout 10 "http://${PROMETHEUS_IP}:9090/-/ready" > /dev/null; then
         echo "✅ PROMETHEUS IS ACCESSIBLE at http://${PROMETHEUS_IP}:9090"
-        echo "Prometheus targets:"
         curl -s "http://${PROMETHEUS_IP}:9090/api/v1/targets" | jq -r '.data.activeTargets[]? | "\(.labels.job): \(.health)"' 2>/dev/null || echo "Could not parse targets"
       else
         echo "❌ Cannot reach Prometheus at ${PROMETHEUS_IP}:9090"
-        echo "Debug info:"
         docker logs prometheus --tail 10
       fi
-      
+    - |
       echo "Testing Grafana at http://${GRAFANA_IP}:3000..."
+      PROMETHEUS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' prometheus)
+      GRAFANA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' grafana)
+      
       if curl -s --connect-timeout 10 "http://${GRAFANA_IP}:3000/api/health" > /dev/null; then
         echo "✅ GRAFANA IS ACCESSIBLE at http://${GRAFANA_IP}:3000"
-        echo "Grafana health:"
         curl -s "http://${GRAFANA_IP}:3000/api/health" | jq '.' 2>/dev/null || echo "Could not parse health response"
-        
-        # Test Grafana login and datasources
-        echo "Testing Grafana datasources..."
         curl -s -u admin:admin "http://${GRAFANA_IP}:3000/api/datasources" | jq -r '.[]? | "\(.name): \(.type)"' 2>/dev/null || echo "Could not fetch datasources"
       else
         echo "❌ Cannot reach Grafana at ${GRAFANA_IP}:3000"
-        echo "Debug info:"
         docker logs grafana --tail 10
       fi
-      
-      # Test internal container communication
+    - |
       echo "=== Testing Internal Container Communication ==="
-      
-      echo "Testing Prometheus internal health..."
       docker exec prometheus curl -s http://localhost:9090/-/ready > /dev/null && echo "✅ Prometheus healthy internally" || echo "❌ Prometheus internal health check failed"
-      
-      echo "Testing Grafana internal health..."
       docker exec grafana curl -s http://localhost:3000/api/health > /dev/null && echo "✅ Grafana healthy internally" || echo "❌ Grafana internal health check failed"
-      
-      echo "Testing Prometheus -> Grafana connection..."
       docker exec prometheus curl -s http://grafana:3000/api/health > /dev/null && echo "✅ Prometheus can reach Grafana" || echo "❌ Prometheus cannot reach Grafana"
-      
-      echo "Testing Grafana -> Prometheus connection..."
       docker exec grafana curl -s http://prometheus:9090/-/ready > /dev/null && echo "✅ Grafana can reach Prometheus" || echo "❌ Grafana cannot reach Prometheus"
-      
-      # Network information
+    - |
       echo "=== Network Information ==="
-      echo "Docker networks:"
       docker network ls
-      
       echo "Container network details:"
       docker inspect prometheus | jq -r '.[0].NetworkSettings.Networks' 2>/dev/null || docker inspect prometheus
-      
-      # Show how to access (for manual testing)
+    - |
+      PROMETHEUS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' prometheus)
+      GRAFANA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' grafana)
       echo "=== ACCESS INSTRUCTIONS ==="
-      echo "Since this runs in GitLab's isolated environment:"
-      echo ""
       echo "1. CONTAINER IP ACCESS (from GitLab runner):"
       echo "   Prometheus: http://${PROMETHEUS_IP}:9090"
       echo "   Grafana:    http://${GRAFANA_IP}:3000"
       echo ""
       echo "2. CREDENTIALS:"
       echo "   Grafana: admin / admin"
-      echo ""
-      echo "3. DOCKER COMPOSE STATUS:"
-      docker-compose ps
-      
-      # Test actual functionality
+    - |
       echo "=== Testing Monitoring Functionality ==="
-      
-      # Check if Prometheus is scraping
-      echo "Checking Prometheus metrics..."
+      PROMETHEUS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' prometheus)
       curl -s "http://${PROMETHEUS_IP}:9090/api/v1/query?query=up" | jq '.data.result[]? | "\(.metric.job): \(.value[1])"' 2>/dev/null || echo "No metrics yet"
-      
-      # Keep services running
-      echo ""
+    - |
       echo "🎯 MONITORING STACK IS RUNNING"
       echo "Services will remain active for 10 minutes..."
-      echo "Check the GitLab job artifacts for any error logs"
       sleep 600
   when: manual
   allow_failure: true
