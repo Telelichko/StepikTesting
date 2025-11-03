@@ -12,8 +12,8 @@ services:
     alias: selenium-standalone
 
 variables:
-  PROMETHEUS_URL: "http://prometheus:9090"
-  GRAFANA_URL: "http://grafana:3000"
+  PROMETHEUS_URL: "http://prometheus:9090/"
+  GRAFANA_URL: "http://grafana:3000/"
 
 build-job:
   stage: build
@@ -81,7 +81,7 @@ grafana-monitoring:
       echo "Waiting for monitoring services to be ready..."
       # Wait for Prometheus to be ready
       for i in {1..30}; do
-        if curl -s --head --request GET "$PROMETHEUS_URL/graph" | grep "200\|302" > /dev/null; then
+        if curl -s --head --request GET "$PROMETHEUS_URL" | grep "200\|302" > /dev/null; then
           echo "Prometheus is ready!"
           break
         fi
@@ -102,51 +102,64 @@ grafana-monitoring:
     - |
       echo "=== Monitoring Setup ==="
       
-      # Get container information and extract IP addresses
-      PROMETHEUS_IP=$(getent hosts prometheus | awk '{ print $1 }')
-      GRAFANA_IP=$(getent hosts grafana | awk '{ print $1 }')
+      echo "Using service URLs for monitoring:"
+      echo "Prometheus URL: $PROMETHEUS_URL"
+      echo "Grafana URL: $GRAFANA_URL"
       
-      echo "Prometheus IP: $PROMETHEUS_IP"
-      echo "Grafana IP: $GRAFANA_IP"
-      
-      # Construct URLs with actual IPs
-      PROMETHEUS_ACTUAL_URL="http://$PROMETHEUS_IP:9090"
-      GRAFANA_ACTUAL_URL="http://$GRAFANA_IP:3000"
-      
-      echo "Prometheus URL: $PROMETHEUS_ACTUAL_URL"
-      echo "Grafana URL: $GRAFANA_ACTUAL_URL"
-      
-      # Test if URLs are accessible
+      # Test if URLs are accessible using service names
       echo "Testing Prometheus connectivity..."
-      if curl -f -s -o /dev/null -w "HTTP Status: %{http_code}\n" "$PROMETHEUS_ACTUAL_URL/graph"; then
-        echo "✓ Prometheus is accessible"
+      if curl -f -s -o /dev/null -w "HTTP Status: %{http_code}\n" "$PROMETHEUS_URL"; then
+        echo "✓ Prometheus is accessible via service URL"
       else
-        echo "✗ Prometheus is not accessible"
+        echo "✗ Prometheus is not accessible via service URL"
       fi
       
       echo "Testing Grafana connectivity..."
-      if curl -f -s -o /dev/null -w "HTTP Status: %{http_code}\n" "$GRAFANA_ACTUAL_URL"; then
-        echo "✓ Grafana is accessible"
+      if curl -f -s -o /dev/null -w "HTTP Status: %{http_code}\n" "$GRAFANA_URL"; then
+        echo "✓ Grafana is accessible via service URL"
       else
-        echo "✗ Grafana is not accessible"
+        echo "✗ Grafana is not accessible via service URL"
       fi
       
-      # Basic setup for Grafana (optional - if you want to automate initial setup)
+      # Test additional endpoints
+      echo "Testing Prometheus graph endpoint..."
+      curl -f -s -o /dev/null -w "Prometheus Graph HTTP Status: %{http_code}\n" "${PROMETHEUS_URL}graph" || echo "Prometheus graph endpoint not accessible"
+      
+      echo "Testing Grafana API endpoint..."
+      curl -f -s -o /dev/null -w "Grafana API HTTP Status: %{http_code}\n" "${GRAFANA_URL}api/health" || echo "Grafana API endpoint not accessible"
+      
+      # Basic setup for Grafana using service URLs
       echo "Setting up Grafana datasource..."
-      curl -X POST "$GRAFANA_ACTUAL_URL/api/datasources" \
+      curl -X POST "${GRAFANA_URL}api/datasources" \
         -H "Content-Type: application/json" \
         -d '{
           "name": "Prometheus",
           "type": "prometheus",
-          "url": "'"$PROMETHEUS_ACTUAL_URL"'",
+          "url": "'"$PROMETHEUS_URL"'",
           "access": "proxy",
           "basicAuth": false
         }' || echo "Note: Datasource setup might require authentication"
       
+      # Create monitoring.env file with service URLs
+      cat > monitoring.env << EOF
+      PROMETHEUS_URL=$PROMETHEUS_URL
+      GRAFANA_URL=$GRAFANA_URL
+      PROMETHEUS_GRAPH_URL=${PROMETHEUS_URL}graph
+      PROMETHEUS_TARGETS_URL=${PROMETHEUS_URL}targets
+      GRAFANA_API_URL=${GRAFANA_URL}api
+      GRAFANA_DATASOURCES_URL=${GRAFANA_URL}datasources
+      EOF
+      
+      echo "Monitoring URLs saved:"
+      cat monitoring.env
+      
       echo "Monitoring setup completed!"
       
-      # Wait for manual testing
+      # Wait for manual testing (5 minutes)
+      echo "Waiting 5 minutes for manual testing and monitoring verification..."
       sleep 300
+      
+      echo "Manual testing period completed."
   artifacts:
     reports:
       dotenv: monitoring.env
@@ -155,7 +168,7 @@ grafana-monitoring:
     expire_in: 1 week
   when: manual
   allow_failure: false
-  timeout: 20 minutes  
+  timeout: 20 minutes
 
 deploy-job:
   stage: deploy
