@@ -9,6 +9,7 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
     ports:
       - '9090:9090'
     networks:
@@ -23,17 +24,16 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     depends_on:
-      prometheus:
-        condition: service_healthy
+      - prometheus
     ports:
       - '3000:3000'
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_INSTALL_PLUGINS=
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./grafana-storage/provisioning:/etc/grafana/provisioning
-      - ./grafana-storage/provisioning/dashboards:/etc/grafana/provisioning/dashboards
     networks:
       - monitoring
     healthcheck:
