@@ -76,30 +76,26 @@ grafana-monitoring:
     - mkdir -p prometheus-storage
     - mkdir -p grafana-storage/provisioning/datasources
 
-    # Create basic Prometheus config
+    # Create basic Prometheus config using echo
     - echo "Creating Prometheus configuration..."
-    - cat > prometheus-storage/prometheus.yml << 'CONFIG'
-global:
-  scrape_interval: 15s
+    - echo "global:" > prometheus-storage/prometheus.yml
+    - echo "  scrape_interval: 15s" >> prometheus-storage/prometheus.yml
+    - echo "" >> prometheus-storage/prometheus.yml
+    - echo "scrape_configs:" >> prometheus-storage/prometheus.yml
+    - echo "  - job_name: 'prometheus'" >> prometheus-storage/prometheus.yml
+    - echo "    static_configs:" >> prometheus-storage/prometheus.yml
+    - echo "      - targets: ['localhost:9090']" >> prometheus-storage/prometheus.yml
 
-scrape_configs:
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-CONFIG
-
-    # Create basic Grafana datasource config
+    # Create basic Grafana datasource config using echo
     - echo "Creating Grafana datasource configuration..."
-    - cat > grafana-storage/provisioning/datasources/datasource.yml << 'CONFIG'
-apiVersion: 1
-
-datasources:
-  - name: 'Prometheus'
-    type: 'prometheus'
-    access: 'proxy'
-    url: 'http://prometheus:9090'
-    isDefault: true
-CONFIG
+    - echo "apiVersion: 1" > grafana-storage/provisioning/datasources/datasource.yml
+    - echo "" >> grafana-storage/provisioning/datasources/datasource.yml
+    - echo "datasources:" >> grafana-storage/provisioning/datasources/datasource.yml
+    - echo "  - name: 'Prometheus'" >> grafana-storage/provisioning/datasources/datasource.yml
+    - echo "    type: 'prometheus'" >> grafana-storage/provisioning/datasources/datasource.yml
+    - echo "    access: 'proxy'" >> grafana-storage/provisioning/datasources/datasource.yml
+    - echo "    url: 'http://prometheus:9090'" >> grafana-storage/provisioning/datasources/datasource.yml
+    - echo "    isDefault: true" >> grafana-storage/provisioning/datasources/datasource.yml
 
     # Start services
     - echo "Starting monitoring stack..."
@@ -139,14 +135,14 @@ CONFIG
     - echo "Grafana: http://localhost:3000 (from GitLab runner)"
     - echo "Grafana credentials: admin/admin"
 
-    # Test external access (this might not work in GitLab runner)
+    # Test external access
     - echo "=== Testing External Access ==="
     - curl -s --connect-timeout 10 http://localhost:9090 > /dev/null && echo "✅ Prometheus accessible via localhost" || echo "❌ Prometheus not accessible via localhost"
     - curl -s --connect-timeout 10 http://localhost:3000 > /dev/null && echo "✅ Grafana accessible via localhost" || echo "❌ Grafana not accessible via localhost"
 
     # Keep services running for a while
-    - echo "Monitoring stack is running. Will keep active for 5 minutes..."
-    - sleep 300
+    - echo "Monitoring stack is running. Will keep active for 2 minutes..."
+    - sleep 120
 
     # Cleanup
     - echo "Stopping monitoring stack..."
@@ -161,4 +157,3 @@ deploy-job:
   script:
     - echo "Deploying application..."
     - echo "Application successfully deployed."
-
