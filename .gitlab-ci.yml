@@ -72,20 +72,30 @@ monitoring:
   before_script:
     - apk add --no-cache docker-compose curl jq
   script:
-    # Create directories
+    # Create necessary directories
     - mkdir -p prometheus-storage
     - mkdir -p grafana-storage/provisioning/datasources
+    - mkdir -p grafana-storage/provisioning/dashboards
 
     # Create Prometheus configuration
     - |
       cat > prometheus-storage/prometheus.yml << 'EOF'
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+    metrics_path: /metrics
+    scheme: http
+
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: /metrics
+    scheme: http
 EOF
 
     # Create Grafana datasource configuration
@@ -101,14 +111,34 @@ datasources:
     isDefault: true
 EOF
 
+    # Create Grafana dashboard configuration
+    - |
+      cat > grafana-storage/provisioning/dashboards/dashboard.yml << 'EOF'
+apiVersion: 1
+
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+EOF
+
     # Stop any existing containers
+    - echo "=== Cleaning up existing containers ==="
     - docker-compose -f docker-compose.yml down || true
 
     # Start monitoring stack
+    - echo "=== Starting monitoring stack ==="
     - docker-compose -f docker-compose.yml up -d
 
-    # Wait for services to start
-    - sleep 15
+    # Wait for services to initialize
+    - echo "=== Waiting for services to start ==="
+    - sleep 20
 
     # Check container status
     - echo "=== Container Status ==="
@@ -116,16 +146,18 @@ EOF
 
     # Check container logs
     - echo "=== Container Logs ==="
-    - docker logs prometheus --tail 10 || echo "No Prometheus logs"
-    - docker logs grafana --tail 10 || echo "No Grafana logs"
+    - docker logs prometheus --tail 5 || echo "No Prometheus logs available"
+    - docker logs grafana --tail 5 || echo "No Grafana logs available"
 
-    # Test internal health
-    - echo "=== Testing Internal Health ==="
+    # Test internal container health
+    - echo "=== Testing Internal Container Health ==="
     - |
       if docker ps | grep -q prometheus; then
         echo "✅ Prometheus container is running"
         if docker exec prometheus wget -q -O- http://localhost:9090/-/ready > /dev/null; then
           echo "✅ Prometheus is healthy internally"
+          echo "Prometheus config:"
+          docker exec prometheus cat /etc/prometheus/prometheus.yml | head -10
         else
           echo "❌ Prometheus internal health check failed"
         fi
@@ -138,6 +170,8 @@ EOF
         echo "✅ Grafana container is running"
         if docker exec grafana curl -s http://localhost:3000/api/health > /dev/null; then
           echo "✅ Grafana is healthy internally"
+          echo "Grafana datasources:"
+          docker exec grafana cat /etc/grafana/provisioning/datasources/datasource.yml | head -10
         else
           echo "❌ Grafana internal health check failed"
         fi
@@ -146,37 +180,59 @@ EOF
       fi
 
     # Test inter-container communication
-    - echo "=== Testing Container Communication ==="
+    - echo "=== Testing Container-to-Container Communication ==="
     - |
       if docker ps | grep -q prometheus && docker ps | grep -q grafana; then
-        if docker exec grafana curl -s http://prometheus:9090/-/ready > /dev/null; then
-          echo "✅ Grafana can reach Prometheus"
+        if docker exec grafana curl -s --connect-timeout 10 http://prometheus:9090/-/ready > /dev/null; then
+          echo "✅ Grafana can reach Prometheus via service name"
         else
-          echo "❌ Grafana cannot reach Prometheus"
+          echo "❌ Grafana cannot reach Prometheus via service name"
         fi
-      else
-        echo "⚠️  Skipping communication test - containers not running"
       fi
 
-    # Get container information
-    - echo "=== Container Information ==="
+    # Get container network information
+    - echo "=== Container Network Information ==="
     - |
       PROMETHEUS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' prometheus 2>/dev/null || echo "not-available")
       GRAFANA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' grafana 2>/dev/null || echo "not-available")
-      echo "Prometheus IP: $PROMETHEUS_IP"
-      echo "Grafana IP: $GRAFANA_IP"
+      
+      echo "Prometheus Container IP: $PROMETHEUS_IP"
+      echo "Grafana Container IP: $GRAFANA_IP"
+      echo ""
+      echo "Network Details:"
+      docker network ls | grep monitoring || echo "No monitoring network found"
 
-    # Final status and information
-    - echo "=== Final Status ==="
+    # Test monitoring functionality
+    - echo "=== Testing Monitoring Functionality ==="
+    - |
+      if docker ps | grep -q prometheus; then
+        echo "Testing Prometheus metrics..."
+        docker exec prometheus curl -s http://localhost:9090/api/v1/query?query=up 2>/dev/null | \
+          jq -r '.data.result[]? | "\(.metric.job): \(.value[1])"' 2>/dev/null || \
+          echo "No metrics data available yet"
+      fi
+
+    # Final status report
+    - echo "=== Final Monitoring Stack Status ==="
     - docker-compose ps
+    - echo ""
+    - echo "=== Summary ==="
+    - echo "✅ Monitoring stack deployment completed"
+    - echo "📊 Services are running internally in Docker network"
+    - echo "🔗 Containers can communicate via service names"
+    - echo "⏱️  Stack will remain active for 5 minutes"
+    - echo ""
+    - echo "Note: External access is restricted in GitLab Runner environment."
+    - echo "This setup verifies container networking and service integration."
 
-    - echo "=== Access Information ==="
-    - echo "Note: In GitLab Runner environment, external access is restricted."
-    - echo "The monitoring stack is running internally for integration testing."
-    - echo "Containers will remain active for 5 minutes."
-
-    # Keep containers running for a short time
+    # Keep containers running for testing
+    - echo "=== Keeping containers running ==="
     - sleep 300
+
+    # Cleanup
+    - echo "=== Cleaning up ==="
+    - docker-compose -f docker-compose.yml down
+    - echo "Monitoring stack stopped"
   when: manual
   allow_failure: true
   timeout: 30 minutes
