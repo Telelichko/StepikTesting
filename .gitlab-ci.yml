@@ -122,7 +122,7 @@ monitoring:
       docker network ls
       
       echo "Monitoring network details:"
-      docker network inspect monitoring_monitoring || docker network inspect $(docker-compose ps -q | head -1 | xargs docker inspect --format='{{.NetworkSettings.Networks}}' | grep -o '\[[^]]*\]' | tr -d '[]') || echo "Could not inspect network"
+      docker network inspect $(docker-compose ps -q | head -1 | xargs docker inspect --format='{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}' | xargs docker network inspect) || echo "Could not inspect network"
       
       echo "=== Container IPs ==="
       echo "Prometheus container IP:"
