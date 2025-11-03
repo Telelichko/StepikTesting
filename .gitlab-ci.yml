@@ -144,6 +144,9 @@ grafana-monitoring:
         }' || echo "Note: Datasource setup might require authentication"
       
       echo "Monitoring setup completed!"
+      
+      # Wait for manual testing
+      sleep 300
   artifacts:
     reports:
       dotenv: monitoring.env
