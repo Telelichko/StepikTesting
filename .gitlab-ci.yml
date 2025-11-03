@@ -65,91 +65,53 @@ allure-report:
     - dotnet-test
 
 grafana-monitoring:
-  stage: monitoring
   image: docker:latest
+  stage: monitoring
   services:
     - docker:dind
   before_script:
-    - apk add --no-cache docker-compose curl
+    - apk add --no-cache docker-compose curl jq
   script:
-    # Create minimal configuration directories
-    - mkdir -p prometheus-storage
-    - mkdir -p grafana-storage/provisioning/datasources
-
-    # Create basic Prometheus config using echo
-    - echo "Creating Prometheus configuration..."
-    - echo "global:" > prometheus-storage/prometheus.yml
-    - echo "  scrape_interval: 15s" >> prometheus-storage/prometheus.yml
-    - echo "" >> prometheus-storage/prometheus.yml
-    - echo "scrape_configs:" >> prometheus-storage/prometheus.yml
-    - echo "  - job_name: 'prometheus'" >> prometheus-storage/prometheus.yml
-    - echo "    static_configs:" >> prometheus-storage/prometheus.yml
-    - echo "      - targets: ['localhost:9090']" >> prometheus-storage/prometheus.yml
-
-    # Create basic Grafana datasource config using echo
-    - echo "Creating Grafana datasource configuration..."
-    - echo "apiVersion: 1" > grafana-storage/provisioning/datasources/datasource.yml
-    - echo "" >> grafana-storage/provisioning/datasources/datasource.yml
-    - echo "datasources:" >> grafana-storage/provisioning/datasources/datasource.yml
-    - echo "  - name: 'Prometheus'" >> grafana-storage/provisioning/datasources/datasource.yml
-    - echo "    type: 'prometheus'" >> grafana-storage/provisioning/datasources/datasource.yml
-    - echo "    access: 'proxy'" >> grafana-storage/provisioning/datasources/datasource.yml
-    - echo "    url: 'http://prometheus:9090'" >> grafana-storage/provisioning/datasources/datasource.yml
-    - echo "    isDefault: true" >> grafana-storage/provisioning/datasources/datasource.yml
-
-    # Start services
     - echo "Starting monitoring stack..."
     - docker-compose -f docker-compose.yml up -d
-
-    # Wait for services to start
-    - echo "Waiting for services to be ready..."
+    - echo "Waiting for services to become healthy..."
     - sleep 30
-
-    # Check if containers are running
-    - echo "=== Container Status ==="
-    - docker-compose ps
-
-    # Test basic connectivity
-    - echo "=== Testing Basic Connectivity ==="
-
-    # Test Prometheus from inside its container
-    - echo "Testing Prometheus internally..."
-    - docker exec prometheus wget -q -O- http://localhost:9090/-/ready && echo "✅ Prometheus is ready" || echo "❌ Prometheus not ready"
-
-    # Test Grafana from inside its container
-    - echo "Testing Grafana internally..."
-    - docker exec grafana curl -s -f http://localhost:3000/api/health && echo "✅ Grafana is healthy" || echo "❌ Grafana not healthy"
-
-    # Test if Grafana can reach Prometheus
-    - echo "Testing Grafana -> Prometheus connection..."
-    - docker exec grafana curl -s http://prometheus:9090/-/ready && echo "✅ Grafana can reach Prometheus" || echo "❌ Grafana cannot reach Prometheus"
-
-    # Get container information
-    - echo "=== Container Information ==="
-    - echo "Prometheus container IP: $(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' prometheus)"
-    - echo "Grafana container IP: $(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' grafana)"
-
-    # Show service URLs
-    - echo "=== Service URLs ==="
-    - echo "Prometheus: http://localhost:9090 (from GitLab runner)"
-    - echo "Grafana: http://localhost:3000 (from GitLab runner)"
-    - echo "Grafana credentials: admin/admin"
-
-    # Test external access
-    - echo "=== Testing External Access ==="
-    - curl -s --connect-timeout 10 http://localhost:9090 > /dev/null && echo "✅ Prometheus accessible via localhost" || echo "❌ Prometheus not accessible via localhost"
-    - curl -s --connect-timeout 10 http://localhost:3000 > /dev/null && echo "✅ Grafana accessible via localhost" || echo "❌ Grafana not accessible via localhost"
-
-    # Keep services running for a while
-    - echo "Monitoring stack is running. Will keep active for 2 minutes..."
-    - sleep 120
-
-    # Cleanup
-    - echo "Stopping monitoring stack..."
-    - docker-compose down
+    - echo "Checking Prometheus health via service name..."
+    - |
+      if curl -s --connect-timeout 10 http://prometheus:9090/-/ready > /dev/null; then
+        echo "✓ Prometheus is healthy and accessible internally."
+      else
+        echo "✗ Prometheus is not accessible internally."
+        exit 1
+      fi
+    - echo "Checking Grafana health via service name..."
+    - |
+      if curl -s --connect-timeout 10 http://grafana:3000/api/health > /dev/null; then
+        echo "✓ Grafana is healthy and accessible internally."
+      else
+        echo "✗ Grafana is not accessible internally."
+        exit 1
+      fi
+    - echo "Checking Prometheus accessibility on localhost:9090..."
+    - |
+      if curl -s --connect-timeout 10 http://localhost:9090/-/ready > /dev/null; then
+        echo "✓ Prometheus is accessible externally on localhost:9090."
+      else
+        echo "✗ Prometheus is not accessible externally on localhost:9090."
+        exit 1
+      fi
+    - echo "Checking Grafana accessibility on localhost:3000..."
+    - |
+      if curl -s --connect-timeout 10 http://localhost:3000/api/health > /dev/null; then
+        echo "✓ Grafana is accessible externally on localhost:3000."
+      else
+        echo "✗ Grafana is not accessible externally on localhost:3000."
+        exit 1
+      fi
   when: manual
-  allow_failure: true
+  allow_failure: false
   timeout: 20 minutes
+
 
 deploy-job:
   stage: deploy
