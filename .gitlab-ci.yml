@@ -150,7 +150,9 @@ grafana-monitoring:
     paths:
       - monitoring.env
     expire_in: 1 week
-  allow_failure: true
+  when: manual
+  allow_failure: false
+  timeout: 20 minutes  
 
 deploy-job:
   stage: deploy
