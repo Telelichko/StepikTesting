@@ -1,40 +1,47 @@
 {
-  "title": "System Metrics",
-  "tags": ["system", "metrics"],
+  "title": "Prometheus Monitoring",
+  "uid": "prometheus-main",
+  "tags": ["prometheus", "monitoring"],
   "timezone": "browser",
   "panels": [
     {
       "id": 1,
-      "type": "timeseries",
-      "title": "CPU Usage",
+      "type": "stat",
+      "title": "Prometheus Server Status",
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
       "targets": [
         {
-          "expr": "rate(process_cpu_seconds_total[1m]) * 100",
+          "expr": "up{job=\"prometheus\"}",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "color": {"mode": "palette-classic"}
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          },
+          "unit": "short"
         }
       }
     },
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Go Routines",
+      "title": "Memory Usage",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
       "targets": [
         {
-          "expr": "go_goroutines",
+          "expr": "process_resident_memory_bytes",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "bytes",
           "color": {"mode": "palette-classic"}
         }
       }
@@ -43,5 +50,6 @@
   "time": {
     "from": "now-1h",
     "to": "now"
-  }
+  },
+  "refresh": "10s"
 }
