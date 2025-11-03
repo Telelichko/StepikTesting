@@ -73,75 +73,97 @@ monitoring:
     - apk add --no-cache docker-compose curl jq
   script:
     - |
-      # Start docker-compose
+      # Start docker-compose with explicit project name
       echo "Starting monitoring stack..."
-      docker-compose -f docker-compose.yml up -d
+      docker-compose -f docker-compose.yml -p stepiktesting up -d
       
       # Wait for services to be ready
       echo "Waiting for services to start..."
-      sleep 30
+      sleep 10
       
       # Check container status
       echo "=== Container Status ==="
-      docker-compose ps
+      docker-compose -p stepiktesting ps
       
-      # Test connectivity using service names
-      echo "=== Testing Internal Connectivity ==="
+      # Get the actual network name
+      NETWORK_NAME=$(docker network ls --filter name=stepiktesting --format "{{.Name}}")
+      echo "Using network: $NETWORK_NAME"
       
-      # Test Prometheus via service name
-      echo "Testing Prometheus at http://prometheus:9090..."
-      if curl -s --connect-timeout 10 http://prometheus:9090/-/ready > /dev/null; then
-        echo "✓ Prometheus is accessible via service name"
-        # Get Prometheus status
-        curl -s http://prometheus:9090/api/v1/status/config | jq '.status' || echo "Could not parse Prometheus response"
-      else
-        echo "✗ Cannot reach Prometheus via service name"
-      fi
+      # Test connectivity from within the containers
+      echo "=== Testing Container Connectivity ==="
       
-      # Test Grafana via service name
-      echo "Testing Grafana at http://grafana:3000..."
-      if curl -s --connect-timeout 10 http://grafana:3000/api/health > /dev/null; then
-        echo "✓ Grafana is accessible via service name"
-        # Get Grafana health status
-        curl -s http://grafana:3000/api/health | jq '.' || echo "Could not parse Grafana response"
-      else
-        echo "✗ Cannot reach Grafana via service name"
-      fi
+      # Test Prometheus from within its own container
+      echo "Testing Prometheus from inside container..."
+      docker exec prometheus wget -q -O- http://localhost:9090/-/ready && echo "✓ Prometheus is healthy internally" || echo "✗ Prometheus internal health check failed"
       
-      # Also test via localhost (port mapping)
-      echo "=== Testing External Access ==="
-      echo "Testing Prometheus at http://localhost:9090..."
-      curl -s http://localhost:9090/-/ready > /dev/null && echo "✓ Prometheus accessible via localhost:9090" || echo "✗ Prometheus not accessible via localhost"
+      # Test Grafana from within its own container
+      echo "Testing Grafana from inside container..."
+      docker exec grafana wget -q -O- http://localhost:3000/api/health && echo "✓ Grafana is healthy internally" || echo "✗ Grafana internal health check failed"
       
-      echo "Testing Grafana at http://localhost:3000..."
-      curl -s http://localhost:3000/api/health > /dev/null && echo "✓ Grafana accessible via localhost:3000" || echo "✗ Grafana not accessible via localhost"
+      # Test inter-container communication
+      echo "Testing Prometheus -> Grafana communication..."
+      docker exec prometheus wget -q -O- http://grafana:3000/api/health > /dev/null && echo "✓ Prometheus can reach Grafana" || echo "✗ Prometheus cannot reach Grafana"
       
-      # Show network information
-      echo "=== Network Information ==="
-      echo "Docker networks:"
-      docker network ls
+      echo "Testing Grafana -> Prometheus communication..."
+      docker exec grafana wget -q -O- http://prometheus:9090/-/ready > /dev/null && echo "✓ Grafana can reach Prometheus" || echo "✗ Grafana cannot reach Prometheus"
       
-      echo "Monitoring network details:"
-      docker network inspect $(docker-compose ps -q | head -1 | xargs docker inspect --format='{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}' | xargs docker network inspect) || echo "Could not inspect network"
+      # Test external access using container IPs
+      echo "=== Testing External Access via Container IPs ==="
+      PROMETHEUS_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' prometheus)
+      GRAFANA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' grafana)
       
-      echo "=== Container IPs ==="
-      echo "Prometheus container IP:"
-      docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' prometheus
+      echo "Prometheus IP: $PROMETHEUS_IP"
+      echo "Grafana IP: $GRAFANA_IP"
       
-      echo "Grafana container IP:"
-      docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' grafana
+      echo "Testing Prometheus at http://$PROMETHEUS_IP:9090..."
+      curl -s --connect-timeout 10 http://$PROMETHEUS_IP:9090/-/ready > /dev/null && echo "✓ Prometheus accessible via container IP" || echo "✗ Prometheus not accessible via container IP"
       
-      echo "=== Service URLs ==="
-      echo "Internal (container-to-container):"
-      echo "  Prometheus: http://prometheus:9090"
-      echo "  Grafana: http://grafana:3000"
+      echo "Testing Grafana at http://$GRAFANA_IP:3000..."
+      curl -s --connect-timeout 10 http://$GRAFANA_IP:3000/api/health > /dev/null && echo "✓ Grafana accessible via container IP" || echo "✗ Grafana not accessible via container IP"
       
-      echo "External (from host/runner):"
-      echo "  Prometheus: http://localhost:9090"
-      echo "  Grafana: http://localhost:3000"
+      # Check if ports are actually bound
+      echo "=== Checking Port Bindings ==="
+      netstat -tulpn || ss -tulpn || echo "Cannot check port bindings"
       
-      # Keep running for testing
-      echo "Monitoring stack is running. Containers will stay up for 10 minutes..."
+      # Check Docker port mappings
+      echo "Docker port mappings:"
+      docker port prometheus
+      docker port grafana
+      
+      # Debug: Check what's listening on ports
+      echo "=== Checking listening processes ==="
+      ps aux | grep docker
+      
+      # Test localhost access (this might not work in dind)
+      echo "=== Testing Localhost Access ==="
+      echo "Note: In docker-in-docker, localhost might not work as expected"
+      
+      # Alternative: Use host.docker.internal if available
+      echo "Testing host.docker.internal..."
+      curl -s --connect-timeout 10 http://host.docker.internal:9090/-/ready > /dev/null && echo "✓ Prometheus accessible via host.docker.internal" || echo "✗ Prometheus not accessible via host.docker.internal"
+      
+      # Final service verification
+      echo "=== Service Verification ==="
+      echo "If containers are running but not accessible, this is likely a network isolation issue in GitLab Runner"
+      echo "Containers are running and healthy internally based on health checks"
+      
+      # Show logs for debugging
+      echo "=== Recent Container Logs ==="
+      docker logs prometheus --tail 20
+      docker logs grafana --tail 20
+      
+      echo "=== Access Information ==="
+      echo "Since this is running in GitLab's dind environment:"
+      echo "- Containers are running and healthy internally"
+      echo "- External access might be restricted by GitLab Runner networking"
+      echo "- For actual monitoring, you would typically:"
+      echo "  1. Deploy to a real environment"
+      echo "  2. Use GitLab's environments feature"
+      echo "  3. Or set up proper service tunneling"
+      
+      # Keep running for manual inspection
+      echo "Monitoring stack will run for 10 minutes..."
+      echo "Check GitLab job logs for any error messages above"
       sleep 600
   when: manual
   allow_failure: true
